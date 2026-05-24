@@ -4,7 +4,7 @@ from conftest import DBMS
 
 class TestPersistence:
     def test_data_survives_reload(self, tmp_path):
-        path = str(tmp_path / "db.json")
+        path = str(tmp_path / "db")
         db = DBMS(path)
         db.q("CREATE TABLE t (a)")
         db.q("INSERT INTO t VALUES ('hello')")
@@ -12,7 +12,7 @@ class TestPersistence:
         assert db2.row_count("SELECT * FROM t") == 1
 
     def test_schema_survives_reload(self, tmp_path):
-        path = str(tmp_path / "db.json")
+        path = str(tmp_path / "db")
         db = DBMS(path)
         db.q("CREATE TABLE t (x, y)")
         db2 = DBMS(path)
@@ -20,7 +20,7 @@ class TestPersistence:
         assert "x" in result and "y" in result
 
     def test_multiple_tables_survive_reload(self, tmp_path):
-        path = str(tmp_path / "db.json")
+        path = str(tmp_path / "db")
         db = DBMS(path)
         db.q("CREATE TABLE t1 (a)")
         db.q("CREATE TABLE t2 (b)")
@@ -29,7 +29,7 @@ class TestPersistence:
         assert db2.row_count("SELECT * FROM t2") == 0
 
     def test_updated_values_survive_reload(self, tmp_path):
-        path = str(tmp_path / "db.json")
+        path = str(tmp_path / "db")
         db = DBMS(path)
         db.q("CREATE TABLE t (a, b)")
         db.q("INSERT INTO t VALUES ('1', 'old')")
@@ -39,7 +39,7 @@ class TestPersistence:
         assert "new" in result
 
     def test_deleted_rows_absent_after_reload(self, tmp_path):
-        path = str(tmp_path / "db.json")
+        path = str(tmp_path / "db")
         db = DBMS(path)
         db.q("CREATE TABLE t (a)")
         db.q("INSERT INTO t VALUES ('keep')")
@@ -51,7 +51,7 @@ class TestPersistence:
 
     def test_dropped_table_absent_after_reload(self, tmp_path):
         from errors import DBError
-        path = str(tmp_path / "db.json")
+        path = str(tmp_path / "db")
         db = DBMS(path)
         db.q("CREATE TABLE t (a)")
         db.q("DROP TABLE t")

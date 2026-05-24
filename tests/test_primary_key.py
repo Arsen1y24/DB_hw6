@@ -63,7 +63,7 @@ class TestPrimaryKey:
 
     def test_pk_seq_survives_reload(self, tmp_path):
         from conftest import DBMS
-        path = str(tmp_path / "db.json")
+        path = str(tmp_path / "db")
         db = DBMS(path)
         db.q("CREATE TABLE t (id PRIMARY KEY, val)")
         db.q("INSERT INTO t (val) VALUES ('a')")

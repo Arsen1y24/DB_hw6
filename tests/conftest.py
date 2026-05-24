@@ -1,14 +1,14 @@
 import pytest
 
 from errors import DBError
-from storage import Storage
+from storage import PagedStorage
 from parser import parse
 from engine import Engine
 
 
 class DBMS:
     def __init__(self, path):
-        self._engine = Engine(Storage(path))
+        self._engine = Engine(PagedStorage(path))
         self.path = path
 
     def q(self, sql: str) -> str:
@@ -28,7 +28,7 @@ class DBMS:
 
 @pytest.fixture
 def db(tmp_path):
-    return DBMS(str(tmp_path / "db.json"))
+    return DBMS(str(tmp_path / "db"))
 
 @pytest.fixture
 def db_with_users(db):

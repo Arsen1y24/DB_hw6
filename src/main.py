@@ -1,14 +1,14 @@
 import sys
 
 from errors import DBError
-from storage import Storage
+from storage import PagedStorage
 from parser import parse
 from engine import Engine
 
 
 def main():
-    path = sys.argv[1] if len(sys.argv) > 1 else "db.json"
-    engine = Engine(Storage(path))
+    path = sys.argv[1] if len(sys.argv) > 1 else "db"
+    engine = Engine(PagedStorage(path))
 
     print(f"Simple DBMS  |  {path}  |  type EXIT to quit\n")
     while True:

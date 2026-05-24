@@ -78,7 +78,7 @@ def _tokenize_expr(s: str) -> list[tuple[str, str]]:
             tokens.append(("LIT", s[start:i]))
             i += 1
         elif c == "=":
-            tokens.append(("OP", "="))
+            tokens.append(("OP", c))
             i += 1
         elif c == "(":
             tokens.append(("LPAREN", "("))
@@ -86,6 +86,13 @@ def _tokenize_expr(s: str) -> list[tuple[str, str]]:
         elif c == ")":
             tokens.append(("RPAREN", ")"))
             i += 1
+        elif c.isdigit() or (c == "-" and i + 1 < len(s) and s[i + 1].isdigit()):
+            start = i
+            if c == "-":
+                i += 1
+            while i < len(s) and (s[i].isdigit() or s[i] == "."):
+                i += 1
+            tokens.append(("NUM", s[start:i]))
         elif c.isalpha() or c == "_":
             start = i
             while i < len(s) and (s[i].isalnum() or s[i] == "_"):
@@ -150,8 +157,8 @@ class _ExprParser:
         left = self._atom()
         tok = self.peek()
         if tok is not None and tok[0] == "OP":
-            self.consume()
-            return {"type": "CMP", "op": "=", "left": left, "right": self._atom()}
+            op = self.consume()[1]
+            return {"type": "CMP", "op": op, "left": left, "right": self._atom()}
         return left
 
     def _atom(self) -> dict:
@@ -170,7 +177,13 @@ class _ExprParser:
         if ttype == "LIT":
             self.consume()
             return {"type": "LIT", "val": tval}
+        if ttype == "NUM":
+            self.consume()
+            return {"type": "LIT", "val": tval}
         if ttype == "WORD":
+            if tval.upper() in ("TRUE", "FALSE"):
+                self.consume()
+                return {"type": "LIT", "val": tval.upper()}
             if tval.upper() in ("AND", "OR", "NOT"):
                 raise DBError(f"Unexpected keyword {tval!r} in WHERE expression")
             self.consume()
@@ -197,23 +210,40 @@ def _parse_create_table(sql: str) -> dict:
         r"CREATE\s+TABLE\s+(\w+)\s*\((.+)\)\s*;?\s*$", sql, re.IGNORECASE | re.DOTALL
     )
     if not m:
-        raise DBError("Syntax: CREATE TABLE name (col1, col2 PRIMARY KEY, ...)")
+        raise DBError("Syntax: CREATE TABLE name (col TYPE [PRIMARY KEY], ...)")
     table = m.group(1)
     pk = None
     columns = []
+    _TYPES = "INTEGER|REAL|TEXT|BOOLEAN"
     for part in _split_by_comma_outside_quotes(m.group(2)):
         part = part.strip()
-        pk_m = re.match(r"(\w+)\s+PRIMARY\s+KEY\s*$", part, re.IGNORECASE)
-        if pk_m:
+        # col TYPE PRIMARY KEY
+        m2 = re.match(rf"(\w+)\s+({_TYPES})\s+PRIMARY\s+KEY\s*$", part, re.IGNORECASE)
+        if m2:
             if pk is not None:
                 raise DBError("Only one PRIMARY KEY allowed")
-            pk = pk_m.group(1)
-            columns.append(pk)
-        else:
-            bare = re.match(r"(\w+)\s*$", part)
-            if not bare:
-                raise DBError(f"Invalid column definition: {part!r}")
-            columns.append(bare.group(1))
+            pk = m2.group(1)
+            columns.append({"name": m2.group(1), "type": m2.group(2).upper()})
+            continue
+        # col PRIMARY KEY  (type defaults to TEXT)
+        m2 = re.match(r"(\w+)\s+PRIMARY\s+KEY\s*$", part, re.IGNORECASE)
+        if m2:
+            if pk is not None:
+                raise DBError("Only one PRIMARY KEY allowed")
+            pk = m2.group(1)
+            columns.append({"name": m2.group(1), "type": "TEXT"})
+            continue
+        # col TYPE
+        m2 = re.match(rf"(\w+)\s+({_TYPES})\s*$", part, re.IGNORECASE)
+        if m2:
+            columns.append({"name": m2.group(1), "type": m2.group(2).upper()})
+            continue
+        # bare col  (defaults to TEXT for backward compatibility)
+        m2 = re.match(r"(\w+)\s*$", part)
+        if m2:
+            columns.append({"name": m2.group(1), "type": "TEXT"})
+            continue
+        raise DBError(f"Invalid column definition: {part!r}")
     if not columns:
         raise DBError("No columns defined")
     return {"op": "CREATE_TABLE", "table": table, "columns": columns, "pk": pk}
